@@ -98,6 +98,7 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
 
     private val recreateInputViewPrefs: Array<PreferenceDelegate<*>> = arrayOf(
         prefs.keyboard.hideInputBar,
+        prefs.keyboard.hideVirtualKeyboard,
         prefs.advanced.ignoreSystemGestureInsets,
     )
 
