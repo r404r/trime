@@ -104,6 +104,7 @@ class InputView(
 
     private val inlinePreeditMode by AppPrefs.defaultInstance().general.inlinePreeditMode
     private val candidatesMode by AppPrefs.defaultInstance().candidates.mode
+    private val hideVirtualKeyboard by AppPrefs.defaultInstance().keyboard.hideVirtualKeyboard
 
     private val keyboardSidePadding = theme.generalStyle.keyboardPadding
     private val keyboardSidePaddingLandscape = theme.generalStyle.keyboardPaddingLand
@@ -198,6 +199,13 @@ class InputView(
                     },
                 )
             }
+
+        // Toolbar-only mode: when enabled, hide the virtual keyboard area while keeping the
+        // input bar (toolbar, clipboard and inline suggestions) visible. Evaluated once during
+        // initialization, mirroring the static hide-input-bar behavior.
+        if (hideVirtualKeyboard) {
+            windowManager.view.visibility = View.GONE
+        }
 
         updateWindowViewHeightJob =
             service.lifecycleScope.launch {
