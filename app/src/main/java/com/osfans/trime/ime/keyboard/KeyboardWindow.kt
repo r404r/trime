@@ -14,6 +14,7 @@ import com.osfans.trime.core.CompositionProto
 import com.osfans.trime.core.RimeMessage
 import com.osfans.trime.core.SchemaItem
 import com.osfans.trime.daemon.RimeSession
+import com.osfans.trime.data.prefs.AppPrefs
 import com.osfans.trime.data.theme.KeyActionManager
 import com.osfans.trime.data.theme.Theme
 import com.osfans.trime.data.theme.model.TextKeyboard
@@ -71,13 +72,23 @@ class KeyboardWindow :
     override val key: ResidentWindow.Key
         get() = KeyboardWindow
 
-    override val isKeyboardArea: Boolean = true
-
     private val presetKeyboardIds = theme.presetKeyboards.keys.toList()
     private var currentKeyboardId = ""
     private var lastKeyboardId = ""
     private var lastLockKeyboardId = ""
     private var tempAsciiMode: Boolean? = null
+    private val keyboardPrefs = AppPrefs.defaultInstance().keyboard
+
+    /**
+     * Height the keyboard area should occupy right now: zero while the user asked for a
+     * toolbar-only input view. Routing this through [currentKeyboardHeight] keeps the decision
+     * inside the window that owns the keyboard, instead of letting an outside component reach
+     * into the view hierarchy, and makes it switchable at runtime rather than only at view
+     * creation time.
+     */
+    private val Keyboard.visibleHeight: Int
+        get() = if (keyboardPrefs.hideKeyboardArea) 0 else keyboardHeight
+
     private val cachedKeyboards = mutableMapOf<String, Pair<Keyboard, KeyboardView>>()
     private val currentKeyboard: Keyboard? get() = cachedKeyboards[currentKeyboardId]?.first
     private val currentKeyboardView: KeyboardView? get() = cachedKeyboards[currentKeyboardId]?.second
@@ -121,7 +132,7 @@ class KeyboardWindow :
         }
 
         keyboard.also {
-            runBlocking { _currentKeyboardHeight.emit(it.keyboardHeight) }
+            runBlocking { _currentKeyboardHeight.emit(it.visibleHeight) }
             if (it.isLock) lastLockKeyboardId = target
             dispatchCapsState(it::setShifted)
 
@@ -311,9 +322,13 @@ class KeyboardWindow :
     }
 
     override fun onAttached() {
+        currentKeyboard?.let { runBlocking { _currentKeyboardHeight.emit(it.visibleHeight) } }
     }
 
     override fun onDetached() {
         currentKeyboardView?.onDetach()
+        // Non-keyboard panels (liquid keyboard, option switcher, unrolled candidates) share the
+        // same window host, so give the area its full height back before one of them is attached.
+        currentKeyboard?.let { runBlocking { _currentKeyboardHeight.emit(it.keyboardHeight) } }
     }
 }

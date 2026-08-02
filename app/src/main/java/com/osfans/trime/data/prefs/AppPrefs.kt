@@ -125,8 +125,9 @@ class AppPrefs(
             const val USE_SOFT_CURSOR = "use_soft_cursor"
             const val HIDE_INPUT_BAR = "hide_input_bar"
 
-            // Distinct key (not "hide_virtual_keyboard") to avoid a type clash with the
-            // String value some experimental builds stored under that key.
+            // Deliberately not "hide_virtual_keyboard": an earlier experiment in this fork
+            // (commit 609aeca4) stored a String/enum under that key, so reusing it would throw
+            // ClassCastException when read as a Boolean on those installs.
             const val HIDE_VIRTUAL_KEYBOARD = "hide_virtual_keyboard_keep_toolbar"
 
             const val SOUND_ON_KEYPRESS = "sound_on_keypress"
@@ -184,7 +185,23 @@ class AppPrefs(
 
         val hideInputBar = switch(R.string.hide_input_bar, HIDE_INPUT_BAR, false)
 
-        val hideVirtualKeyboard = switch(R.string.hide_virtual_keyboard, HIDE_VIRTUAL_KEYBOARD, false)
+        val hideVirtualKeyboard = switch(
+            R.string.hide_virtual_keyboard,
+            HIDE_VIRTUAL_KEYBOARD,
+            false,
+            enableUiOn = { !hideInputBar.getValue() },
+        )
+
+        /**
+         * Whether the keyboard area should be collapsed, leaving a toolbar-only input view.
+         *
+         * [hideInputBar] wins on purpose: with both switches on there would be nothing visible
+         * left in the input view and no way to turn either of them off from the IME itself.
+         * Normalising on read (rather than on write) also neutralises any state already
+         * persisted by an older build, regardless of the order the switches were toggled in.
+         */
+        val hideKeyboardArea: Boolean
+            get() = hideVirtualKeyboard.getValue() && !hideInputBar.getValue()
 
         val soundOnKeyPress = switch(R.string.sound_on_keypress, SOUND_ON_KEYPRESS, false)
         val soundVolume = int(
