@@ -193,12 +193,38 @@ class AppPrefs(
         )
 
         /**
+         * [hideInputBar] and [hideVirtualKeyboard] are mutually exclusive: with both on there
+         * would be nothing visible left in the input view and no way to turn either of them off
+         * from the IME itself. [hideInputBar] wins, so enabling it clears [hideVirtualKeyboard].
+         *
+         * This runs on every change of either key and once at startup, so a state persisted by an
+         * older build is normalised too. Clearing [hideVirtualKeyboard] re-enters this through the
+         * change listener, but by then the pair is no longer both-on, so it settles immediately.
+         */
+        private fun normalizeExclusiveHiding() {
+            if (hideInputBar.getValue() && hideVirtualKeyboard.getValue()) {
+                hideVirtualKeyboard.setValue(false)
+            }
+        }
+
+        @Keep
+        private val exclusiveHidingListener =
+            PreferenceDelegateProvider
+                .OnChangeListener { key ->
+                    if (key == HIDE_INPUT_BAR || key == HIDE_VIRTUAL_KEYBOARD) {
+                        normalizeExclusiveHiding()
+                    }
+                }.also {
+                    normalizeExclusiveHiding()
+                    registerOnChangeListener(it)
+                }
+
+        /**
          * Whether the keyboard area should be collapsed, leaving a toolbar-only input view.
          *
-         * [hideInputBar] wins on purpose: with both switches on there would be nothing visible
-         * left in the input view and no way to turn either of them off from the IME itself.
-         * Normalising on read (rather than on write) also neutralises any state already
-         * persisted by an older build, regardless of the order the switches were toggled in.
+         * The `!hideInputBar` term is defence in depth: [normalizeExclusiveHiding] already keeps
+         * the stored pair from being both-on, but reading it this way means even a write path
+         * that bypasses that normalisation cannot produce an empty input view.
          */
         val hideKeyboardArea: Boolean
             get() = hideVirtualKeyboard.getValue() && !hideInputBar.getValue()
