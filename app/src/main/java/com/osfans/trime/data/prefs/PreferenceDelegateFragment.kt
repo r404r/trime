@@ -10,6 +10,7 @@ import androidx.annotation.Keep
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.Preference
 import androidx.preference.PreferenceScreen
+import androidx.preference.SwitchPreference
 import com.osfans.trime.ui.common.PaddingPreferenceFragment
 import kotlinx.coroutines.launch
 
@@ -20,8 +21,9 @@ abstract class PreferenceDelegateFragment(
 
     // it would be better to declare the dependency relationship, rather than reevaluating on each value changed
     @Keep
-    private val onValueChangeListener = PreferenceDelegateProvider.OnChangeListener {
+    private val onValueChangeListener = PreferenceDelegateProvider.OnChangeListener { key ->
         evaluateVisibility()
+        syncSwitchState(key)
     }
 
     init {
@@ -58,6 +60,23 @@ abstract class PreferenceDelegateFragment(
                 changed.forEach { (key, enable) ->
                     findPreference<Preference>(key)?.isEnabled = enable
                 }
+            }
+        }
+    }
+
+    /**
+     * A preference can be written by something other than its own control -- two mutually
+     * exclusive switches normalising each other, for one. AndroidX Preference reads
+     * SharedPreferences when it binds and not again, so a control that did not perform the write
+     * would keep showing the old state and swallow the next tap on it.
+     */
+    private fun syncSwitchState(key: String) {
+        val stored = preferenceProvider.preferenceDelegates[key]?.getValue() as? Boolean ?: return
+        lifecycleScope.launch {
+            if (preferenceScreen == null) return@launch
+            val switch = findPreference<Preference>(key) as? SwitchPreference ?: return@launch
+            if (switch.isChecked != stored) {
+                switch.isChecked = stored
             }
         }
     }
